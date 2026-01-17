@@ -1,0 +1,13 @@
+# Cache files
+cache/
+
+# Output files
+instagram_bundles.json
+
+# Environment files (if you create one)
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
