@@ -55,12 +55,17 @@ export function Home({ navigate }: HomeProps) {
       <div className="relative flex items-center justify-center min-h-screen px-4">
         <div className="w-full max-w-3xl">
           <div className="text-center mb-16 space-y-6">
-            <h1 className="text-7xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-violet-400 via-fuchsia-300 to-cyan-400 animate-pulse" style={{
+            <h1 className="text-7xl font-black tracking-tight" style={{
               fontFamily: '"Bebas Neue", "Impact", sans-serif',
-              textShadow: '0 0 40px rgba(139, 92, 246, 0.5)',
-              animationDuration: '3s'
             }}>
-              IDENTIFY.AI
+              <span style={{
+                color: '#00ff00',
+                textShadow: '0 0 20px #00ff00, 0 0 40px #00cc00, 0 0 60px #00aa00',
+              }}>IDENTI</span>
+              <span style={{
+                color: '#ff00ff',
+                textShadow: '0 0 20px #ff00ff, 0 0 40px #cc00cc, 0 0 60px #aa00aa',
+              }}>VIBE</span>
             </h1>
             <p className="text-xl text-violet-200 tracking-wide" style={{
               fontFamily: '"Courier New", monospace',
