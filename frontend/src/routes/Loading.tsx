@@ -3,7 +3,7 @@ import type { ResolveSourcesResponse } from '../types/sources';
 
 type LoadingProps = {
   initialState: ResolveSourcesResponse | null;
-  navigate: (path: string, state?: unknown) => void;
+  navigate: (path: string, state?: ResolveSourcesResponse) => void;
 };
 
 const loadingMessages = [
@@ -22,7 +22,6 @@ const loadingMessages = [
 ];
 
 // Amplitude tracking config
-const AMPLITUDE_API_KEY = 'fade1179fcf08d585410d2ae5c8c46ae';
 const RAGE_WINDOW_MS = 2000;
 const RAGE_THRESHOLD = 7;
 const STORAGE_KEY_IMPATIENCE = 'identivibe_impatience_score';
@@ -76,10 +75,31 @@ function computeImpatienceScore(
   return Math.max(0, Math.min(1, score + 0.3)); // Base of 0.3
 }
 
+type Toast = {
+  id: string;
+  title: string;
+  details?: string;
+};
+
 export function Loading({ initialState, navigate }: LoadingProps) {
   const [messageIndex, setMessageIndex] = useState(0);
   const [status, setStatus] = useState<'loading' | 'error'>('loading');
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Popups (toasts)
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const toastSeqRef = useRef(0);
+
+  const showPopup = useCallback((title: string, details?: string) => {
+    const id = `t_${Date.now()}_${toastSeqRef.current++}`;
+    const toast: Toast = { id, title, details };
+    setToasts((prev) => [...prev, toast]);
+
+    // Auto dismiss
+    window.setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 3500);
+  }, []);
 
   // Tracking refs (don't trigger re-renders)
   const clickTimesRef = useRef<number[]>([]);
@@ -107,31 +127,30 @@ export function Loading({ initialState, navigate }: LoadingProps) {
     // Check for rage click
     if (clickTimesRef.current.length >= RAGE_THRESHOLD) {
       rageClicksRef.current += 1;
-      console.log('🔥 Rage click detected!', {
-        clicks: clickTimesRef.current.length,
-        total: totalClicksRef.current,
-      });
+
+      showPopup('Rage click detected', `window_clicks=${clickTimesRef.current.length}, total_clicks=${totalClicksRef.current}`);
+
       // Reset window after rage detection
       clickTimesRef.current = [];
     }
-  }, []);
+  }, [showPopup]);
 
   // Track tab switches
   const handleVisibilityChange = useCallback(() => {
     if (document.visibilityState === 'hidden') {
       tabSwitchesRef.current += 1;
-      console.log('👀 Tab switch detected', { count: tabSwitchesRef.current });
+      showPopup('Tab switch detected', `count=${tabSwitchesRef.current}`);
     }
-  }, []);
+  }, [showPopup]);
 
   // Save behavior on page unload (potential rage quit)
   const handleBeforeUnload = useCallback(() => {
     if (!hasCompletedRef.current) {
       // User left before completion - high impatience
       saveImpatienceScore(0.9);
-      console.log('😤 Rage quit detected - saving high impatience');
+      showPopup('Rage quit detected', 'Saving high impatience (0.9)');
     }
-  }, []);
+  }, [showPopup]);
 
   // Redirect if no initial state
   useEffect(() => {
@@ -169,7 +188,11 @@ export function Loading({ initialState, navigate }: LoadingProps) {
 
     const runScrape = async () => {
       try {
-        console.log('🚀 Starting scrape with impatience:', previousImpatience.current);
+        showPopup(
+          'Scrape started',
+          `previous_impatience=${previousImpatience.current}`
+        );
+
 
         const response = await fetch('http://localhost:8000/api/scrape', {
           method: 'POST',
@@ -201,20 +224,14 @@ export function Loading({ initialState, navigate }: LoadingProps) {
         );
         saveImpatienceScore(newScore);
 
-        console.log('✅ Scrape complete!', {
-          settings_used: result.settings_used,
-          previous_impatience: previousImpatience.current,
-          new_impatience: newScore,
-          behavior: {
-            rage_clicks: rageClicksRef.current,
-            total_clicks: totalClicksRef.current,
-            tab_switches: tabSwitchesRef.current,
-            wait_time_ms: waitTime,
-          },
-        });
+        showPopup(
+          'Scrape completed',
+          `new_impatience=${newScore.toFixed(2)}, rage=${rageClicksRef.current}, clicks=${totalClicksRef.current}, tabs=${tabSwitchesRef.current}, wait_ms=${waitTime}`
+        );
+
 
         // Navigate to results with the scrape data
-        navigate('/results', { ...initialState, scrapeResult: result });
+        navigate('/results', { ...initialState, analysisResult: result } as any);
       } catch (err) {
         console.error('Scrape error:', err);
         setStatus('error');
@@ -223,7 +240,7 @@ export function Loading({ initialState, navigate }: LoadingProps) {
     };
 
     runScrape();
-  }, [initialState, navigate]);
+  }, [initialState, navigate, showPopup]);
 
   if (!initialState) {
     return null;
@@ -258,6 +275,31 @@ export function Loading({ initialState, navigate }: LoadingProps) {
         background: 'linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #2d1b3d 100%)',
       }}
     >
+      {/* Popups */}
+      <div className="fixed top-4 right-4 z-[9999] w-[360px] max-w-[calc(100vw-2rem)] space-y-2">
+        {toasts.map((t) => (
+          <div
+            key={t.id}
+            className="rounded-2xl border border-violet-400/40 bg-violet-500/15 backdrop-blur-md shadow-2xl p-4"
+          >
+            <div
+              className="text-violet-100 font-bold"
+              style={{ fontFamily: '"Fira Code", monospace' }}
+            >
+              {t.title}
+            </div>
+            {t.details ? (
+              <div
+                className="mt-1 text-violet-200/90 text-sm"
+                style={{ fontFamily: '"Fira Code", monospace' }}
+              >
+                {t.details}
+              </div>
+            ) : null}
+          </div>
+        ))}
+      </div>
+
       {/* Animated grid background */}
       <div
         className="absolute inset-0 opacity-20"
